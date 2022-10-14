@@ -1,5 +1,5 @@
 import { Component, ViewChild, ElementRef, OnInit, HostListener } from '@angular/core';
-import { BLOCK_SIZE, COLS, ROWS } from '../constants';
+import { BLOCK_SIZE, COLS, ROWS, STEP_SIZE } from '../constants';
 import { Piece } from '../piece';
 import { IPiece } from '../ipiece'
 
@@ -18,27 +18,47 @@ export class RaceTrackComponent implements OnInit {
   level: number = 0;
   track: number[][] = this.getEmptyTrack();
   piece!: Piece;
+  requestId: number = 0;
 
   message: string = "";
 
   moves = {
-    "j": (p: IPiece): IPiece => ({ ...p, x: p.x - 1 }),
-    "l": (p: IPiece): IPiece => ({ ...p, x: p.x + 1 }),
-    "i": (p: IPiece): IPiece => ({ ...p, y: p.y - 1 }),
-    "k": (p: IPiece): IPiece => ({ ...p, y: p.y + 1 })
+    "j": (p: IPiece): IPiece => ({ ...p, x: p.x - STEP_SIZE }),
+    "l": (p: IPiece): IPiece => ({ ...p, x: p.x + STEP_SIZE }),
+    "i": (p: IPiece): IPiece => ({ ...p, y: p.y - STEP_SIZE }),
+    "k": (p: IPiece): IPiece => ({ ...p, y: p.y + STEP_SIZE })
   };
 
-  @HostListener('window:keydown', ['$event'])
-  keyEvent(event: KeyboardEvent) {
-    this.message = "pressed key: " + event.key;
-    if (event.key in this.moves) {
-      // If the keyCode exists in our moves stop the event from bubbling.
-      // event.preventDefault();
-      const p = this.moves[event.key as keyof typeof this.moves](this.piece);
-      this.piece.move(p);
+  keys_pressed =
+    {
+      "j": false,
+      "l": false,
+      "i": false,
+      "k": false
+    };
 
+  @HostListener('window:keydown', ['$event'])
+  keyEventDown(event: KeyboardEvent): void {
+    if (event.key in this.keys_pressed) {
+      this.keys_pressed[event.key as keyof typeof this.keys_pressed] = true;
+    }
+  }
+
+  @HostListener('window:keyup', ['$event'])
+  keyEventUp(event: KeyboardEvent): void {
+    if (event.key in this.keys_pressed) {
+      this.keys_pressed[event.key as keyof typeof this.keys_pressed] = false;
+    }
+  }
+
+  reactToKeys(): void {
+    const keys = Object.keys(this.keys_pressed).filter(key => this.keys_pressed[key as keyof typeof this.keys_pressed]);
+    for (const key of keys) {
+      const p = this.moves[key as keyof typeof this.keys_pressed](this.piece);
+      this.piece.move(p);
       this.draw();
       this.piece.draw();
+      // }
     }
   }
 
@@ -55,6 +75,11 @@ export class RaceTrackComponent implements OnInit {
 
   }
 
+  animate() {
+    this.reactToKeys();
+    this.requestId = requestAnimationFrame(this.animate.bind(this));
+  }
+
   getEmptyTrack(): number[][] {
     return Array.from({ length: ROWS }, () => Array(COLS).fill(0));
   }
@@ -63,6 +88,7 @@ export class RaceTrackComponent implements OnInit {
     this.track = this.getEmptyTrack();
     this.piece = new Piece(this.ctx);
     this.piece.draw();
+    this.animate();
   }
 
   draw(): void {
