@@ -1,7 +1,5 @@
 <div class="grid">
-    <div class="left-column">
-        <canvas #track class="RaceTrackComponent"></canvas>
-    </div>
+    <canvas #track class="RaceTrackComponent"></canvas>
     <div class="right-column">
         <div>
             <h1>Racing!</h1>
@@ -9,6 +7,7 @@
             <p>Lines: {{ lines }}</p>
             <p>Level: {{ level }}</p>
         </div>
+        <p> Debug msg: {{message}} </p>
         <button (click)="play()" class="play-button">Play</button>
     </div>
 </div>

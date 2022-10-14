@@ -8,7 +8,7 @@ import { RaceTrackComponent } from './race-track/race-track.component';
 @NgModule({
   declarations: [
     AppComponent,
-    RaceTrackComponent
+    RaceTrackComponent,
   ],
   imports: [
     BrowserModule,
