@@ -2,6 +2,7 @@ import { Component, ViewChild, ElementRef, OnInit, HostListener } from '@angular
 import { BLOCK_SIZE, COLS, ROWS, STEP_SIZE } from '../constants';
 import { Piece } from '../piece';
 import { IPiece } from '../ipiece'
+import { obstacle } from '../obstacles';
 
 @Component({
   selector: 'race-track',
@@ -19,6 +20,7 @@ export class RaceTrackComponent implements OnInit {
   track: number[][] = this.getEmptyTrack();
   piece!: Piece;
   requestId: number = 0;
+  obstacles: Piece[] = [];
 
   message: string = "";
 
@@ -55,11 +57,21 @@ export class RaceTrackComponent implements OnInit {
     const keys = Object.keys(this.keys_pressed).filter(key => this.keys_pressed[key as keyof typeof this.keys_pressed]);
     for (const key of keys) {
       const p = this.moves[key as keyof typeof this.keys_pressed](this.piece);
-      this.piece.move(p);
-      this.draw();
-      this.piece.draw();
-      // }
+      if (this.isValid(p)) {
+        this.piece.move(p);
+        this.draw();
+        this.piece.draw();
+      }
     }
+  }
+
+  isValid(piece: IPiece): boolean {
+    // this.message = "moving to cell with value " + String(piece.x) + " " + String(piece.y);
+    const inbounds: boolean = 0 < piece.x && piece.x < (COLS - 1) * BLOCK_SIZE && 0 < piece.y && piece.y < (ROWS - 1) * BLOCK_SIZE;
+    if (inbounds && this.track[piece.y][piece.x] == 0) {
+      return true;
+    }
+    return false;
   }
 
   ngOnInit(): void {
@@ -77,17 +89,43 @@ export class RaceTrackComponent implements OnInit {
 
   animate() {
     this.reactToKeys();
+    for (const obstacle of this.obstacles) {
+      obstacle.draw();
+    }
     this.requestId = requestAnimationFrame(this.animate.bind(this));
   }
 
   getEmptyTrack(): number[][] {
-    return Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+    return Array.from({ length: ROWS * BLOCK_SIZE }, () => Array(COLS * BLOCK_SIZE).fill(0));
   }
 
   play(): void {
-    this.track = this.getEmptyTrack();
     this.piece = new Piece(this.ctx);
+    // for (let i = 0; i < BLOCK_SIZE; i++) {
+    //   for (let j = 0; j < BLOCK_SIZE; j++) {
+    //     this.track[this.piece.y + j][this.piece.x + i] = 1;
+    //   }
+    // }
     this.piece.draw();
+
+    this.obstacles.push(new Piece(this.ctx));
+    for (const obstacle of this.obstacles) {
+      obstacle.randomPlacement();
+      obstacle.color = "red";
+      // for (let i = 0; i < BLOCK_SIZE; i++) {
+      //   for (let j = 0; j < BLOCK_SIZE; j++) {
+      //     this.track[obstacle.y + j][obstacle.x + i] = 2;
+      //   }
+      // }
+      obstacle.draw();
+    }
+    this.message = String(this.track);
+
+
+    if (this.requestId) {
+      cancelAnimationFrame(this.requestId);
+    }
+
     this.animate();
   }
 
