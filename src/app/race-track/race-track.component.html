@@ -3,11 +3,19 @@
     <div class="right-column">
         <div>
             <h1>Racing!</h1>
-            <p>Score: {{ points }}</p>
-            <p>Lines: {{ lines }}</p>
+            <p>Health points: {{hp}}</p>
             <p>Level: {{ level }}</p>
+            <p>Score: {{ score }} </p>
         </div>
-        <p> Debug msg: {{message}} </p>
+        <!-- <p> Debug msg: {{message}} </p> -->
+        <div>
+            <h3> Goal:</h3>
+            <p> Get to the other side as fast as possible while avoiding the obstacles.</p>
+        </div>
+        <!-- <h3> High scores:</h3>
+        <ol>
+            <li *ngFor="let points of highScores"> {{points}} </li>
+        </ol> -->
         <button (click)="play()" class="play-button">Play</button>
     </div>
 </div>

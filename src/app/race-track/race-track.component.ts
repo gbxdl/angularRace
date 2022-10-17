@@ -1,8 +1,7 @@
 import { Component, ViewChild, ElementRef, OnInit, HostListener } from '@angular/core';
-import { BLOCK_SIZE, COLS, ROWS, STEP_SIZE } from '../constants';
+import { BLOCK_SIZE, COLS, MAX_POINTS_LEVEL, ROWS, STEP_SIZE } from '../constants';
 import { Piece } from '../piece';
 import { IPiece } from '../ipiece'
-import { obstacle } from '../obstacles';
 
 @Component({
   selector: 'race-track',
@@ -14,11 +13,14 @@ export class RaceTrackComponent implements OnInit {
   canvas!: ElementRef<HTMLCanvasElement>;
 
   ctx!: CanvasRenderingContext2D;
-  points: number = 0;
-  lines: number = 0;
-  level: number = 0;
+  maxPointsLevel: number = MAX_POINTS_LEVEL;
+  levelTimer!: number;
+  level: number = 1;
+  score: number = 0;
+  highScores: number[] = [];
+  hp: number = 100;
   track: number[][] = this.getEmptyTrack();
-  piece!: Piece;
+  player!: Piece;
   requestId: number = 0;
   obstacles: Piece[] = [];
 
@@ -56,90 +58,113 @@ export class RaceTrackComponent implements OnInit {
   reactToKeys(): void {
     const keys = Object.keys(this.keys_pressed).filter(key => this.keys_pressed[key as keyof typeof this.keys_pressed]);
     for (const key of keys) {
-      const p = this.moves[key as keyof typeof this.keys_pressed](this.piece);
+      const p = this.moves[key as keyof typeof this.keys_pressed](this.player);
       if (this.isValid(p)) {
-        this.piece.move(p);
-        this.draw();
-        this.piece.draw();
+        this.player.move(p);
+      }
+      else {
+        this.maxPointsLevel -= 10;
+        this.hp -= 1;
       }
     }
   }
 
   isValid(piece: IPiece): boolean {
-    // this.message = "moving to cell with value " + String(piece.x) + " " + String(piece.y);
-    const inbounds: boolean = 0 < piece.x && piece.x < (COLS - 1) * BLOCK_SIZE && 0 < piece.y && piece.y < (ROWS - 1) * BLOCK_SIZE;
+    this.message = "moving to cell with value " + String(piece.x) + " " + String(piece.y);
+    const inbounds: boolean = 0 < piece.x && piece.x < COLS && 0 < piece.y && piece.y < ROWS;
     if (inbounds && this.track[piece.y][piece.x] == 0) {
       return true;
     }
     return false;
   }
 
-  ngOnInit(): void {
-    this.initTrack();
-    this.draw();
+  isGameover(): boolean {
+    return this.hp < 1;
   }
 
-  initTrack(): void {
-    this.ctx = this.canvas.nativeElement.getContext('2d') as CanvasRenderingContext2D;
+  ngOnInit(): void {
+    this.initCanvas();
+    this.drawCanvas();
+  }
 
+  initCanvas(): void {
+    this.ctx = this.canvas.nativeElement.getContext('2d') as CanvasRenderingContext2D;
     this.ctx.canvas.width = COLS * BLOCK_SIZE;
     this.ctx.canvas.height = ROWS * BLOCK_SIZE;
-
   }
 
   animate() {
     this.reactToKeys();
+    this.drawCanvas();
+    this.player.draw(this.ctx);
     for (const obstacle of this.obstacles) {
-      obstacle.draw();
+      obstacle.draw(this.ctx);
     }
-    this.requestId = requestAnimationFrame(this.animate.bind(this));
+    if (this.player.y <= 1) {
+      this.nextLevel();
+    }
+    if (!this.isGameover()) {
+      this.requestId = requestAnimationFrame(this.animate.bind(this));
+      this.highScores.push(this.score);
+      this.highScores.sort();
+      this.highScores = this.highScores.length < 5 ? this.highScores : this.highScores.slice(4);
+    }
   }
 
   getEmptyTrack(): number[][] {
-    return Array.from({ length: ROWS * BLOCK_SIZE }, () => Array(COLS * BLOCK_SIZE).fill(0));
+    // return Array(ROWS).fill(Array(COLS).fill(0));
+    return Array.from(Array(ROWS), () => Array(COLS).fill(0));
   }
 
-  play(): void {
-    this.piece = new Piece(this.ctx);
-    // for (let i = 0; i < BLOCK_SIZE; i++) {
-    //   for (let j = 0; j < BLOCK_SIZE; j++) {
-    //     this.track[this.piece.y + j][this.piece.x + i] = 1;
-    //   }
-    // }
-    this.piece.draw();
+  nextLevel(): void {
+    const expiredTimeDecaSeconds = Math.floor((Date.now() - this.levelTimer) / 100);
+    this.score += expiredTimeDecaSeconds < this.maxPointsLevel ? this.maxPointsLevel - expiredTimeDecaSeconds : 1;
+    this.levelTimer = Date.now();
+    this.maxPointsLevel = MAX_POINTS_LEVEL;
+    this.player.y = ROWS - 1;
 
-    this.obstacles.push(new Piece(this.ctx));
-    for (const obstacle of this.obstacles) {
-      obstacle.randomPlacement();
-      obstacle.color = "red";
-      // for (let i = 0; i < BLOCK_SIZE; i++) {
-      //   for (let j = 0; j < BLOCK_SIZE; j++) {
-      //     this.track[obstacle.y + j][obstacle.x + i] = 2;
-      //   }
-      // }
-      obstacle.draw();
-    }
-    this.message = String(this.track);
+    this.level += 1;
+    this.hp += 10;
+    this.addObstacles(10);
+  }
 
-
+  reset(): void {
     if (this.requestId) {
       cancelAnimationFrame(this.requestId);
     }
+    this.track = this.getEmptyTrack();
+    this.obstacles = [];
+    this.levelTimer = Date.now();
+    this.hp = 100;
+    this.score = 0;
+  }
+
+  play(): void {
+    this.reset();
+    this.player = new Piece();
+    this.track[this.player.y][this.player.x] = 1;
+
+    this.addObstacles(100);
 
     this.animate();
   }
 
-  draw(): void {
-    this.ctx.clearRect(0, 0, this.ctx.canvas.width, this.ctx.canvas.height);
-    //drawing a line around the canvas
-    this.ctx.lineWidth = 3;
-    this.ctx.strokeStyle = "#000000";
-    this.ctx.strokeRect(0, 0, this.ctx.canvas.width, this.ctx.canvas.height);
-
+  addObstacles(number: number) {
+    for (let i = 0; i < number; i++) {
+      const obstacle = new Piece();
+      obstacle.randomPlacement(this.track);
+      obstacle.color = "red";
+      this.track[obstacle.y][obstacle.x] = 2;
+      this.obstacles.push(obstacle);
+    }
   }
 
+  drawCanvas(): void {
+    this.ctx.clearRect(0, 0, this.ctx.canvas.width, this.ctx.canvas.height);
 
-
+    this.ctx.lineWidth = 3;
+    this.ctx.strokeRect(0, 0, this.ctx.canvas.width, this.ctx.canvas.height);
+  }
 }
 
 
