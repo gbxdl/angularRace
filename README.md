@@ -1,3 +1,6 @@
+# Gameplay 
+Get to the other side as fast as possible while avoiding the obstacles. Points are subtracted for hitting obstacles and being slow.
+
 # resources
 
 using a tetris tutorial as help: 
